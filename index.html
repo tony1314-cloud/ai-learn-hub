@@ -7,19 +7,19 @@
 <title>AI 学习成长台</title>
 <style>
   :root{
-    --bg:#f5f9f8;
+    --bg:#fdf8f3;
     --card:#ffffff;
-    --ink:#1f2d2b;
-    --sub:#6b7c79;
-    --line:#e3ecea;
-    --main:#1aa97f;      /* 青绿主色 */
-    --main-soft:#e6f6f0;
-    --main-deep:#138a68;
+    --ink:#2b2118;
+    --sub:#8a7a68;
+    --line:#f0e6da;
+    --main:#ef9437;      /* 主色 RGB(239,148,55) 橙黄 */
+    --main-soft:#fdeede;
+    --main-deep:#c9761f;
     --warn:#e5484d;      /* 逾期/支出红 */
     --good:#16a34a;      /* 收入/已掌握绿 */
     --gold:#e0a106;
     --radius:16px;
-    --shadow:0 2px 10px rgba(26,169,127,.06), 0 1px 3px rgba(0,0,0,.04);
+    --shadow:0 2px 10px rgba(239,148,55,.07), 0 1px 3px rgba(0,0,0,.04);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
@@ -30,7 +30,7 @@
   }
   /* 顶栏 */
   header{
-    position:sticky;top:0;z-index:30;background:rgba(245,249,248,.92);
+    position:sticky;top:0;z-index:30;background:rgba(253,248,243,.92);
     backdrop-filter:saturate(180%) blur(10px);
     border-bottom:1px solid var(--line);
     padding:12px 16px calc(12px + env(safe-area-inset-top));
@@ -51,7 +51,7 @@
 
   /* 今天要处理 */
   .today{
-    background:linear-gradient(135deg,#fff,#eafaf4);
+    background:linear-gradient(135deg,#fff,#fdeede);
     border:1px solid var(--line);border-radius:var(--radius);
     padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);
   }
@@ -177,7 +177,7 @@
 
 <header>
   <div class="toprow">
-    <svg class="logo" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="6" fill="#1aa97f"/><path d="M7 14l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg class="logo" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="6" fill="#ef9437"/><path d="M7 14l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <div class="title">AI 学习成长台<small>提示词 · 技术 · 平台变现 一站记录</small></div>
     <div class="spacer"></div>
     <div class="sync" id="syncBox"><span class="dot" id="syncDot"></span><span id="syncTxt">已同步</span></div>
@@ -189,7 +189,7 @@
   <!-- 今天要处理 -->
   <section class="today">
     <h2>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 5 5.6.8-4 4 1 5.6L12 19l-5 2.4 1-5.6-4-4 5.6-.8z" fill="#1aa97f"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 5 5.6.8-4 4 1 5.6L12 19l-5 2.4 1-5.6-4-4 5.6-.8z" fill="#ef9437"/></svg>
       今天要处理
     </h2>
     <div class="cnt" id="todayCnt"></div>
@@ -199,11 +199,11 @@
   <!-- 备份条 -->
   <div class="backup">
     <button class="bk-btn" onclick="exportJSON()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="#1aa97f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="#ef9437" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       导出 JSON 备份
     </button>
     <button class="bk-btn" onclick="document.getElementById('imp').click()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15V3m0 12l-4-4m4 4l4-4M5 21h14" stroke="#1aa97f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15V3m0 12l-4-4m4 4l4-4M5 21h14" stroke="#ef9437" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       导入恢复
     </button>
     <input type="file" id="imp" accept="application/json" class="hide" onchange="importJSON(event)">
