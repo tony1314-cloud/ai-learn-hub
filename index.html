@@ -231,6 +231,10 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 8l9-5 9 5-9 5zM3 8v8l9 5 9-5V8M12 13v8" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
       平台变现
     </button>
+    <button class="tab" data-mod="invest" onclick="switchMod('invest')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 18l5-5 3 3 7-8M16 8h4v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      投资笔记
+    </button>
   </div>
 
   <!-- 工具栏 -->
@@ -262,6 +266,9 @@
   </button>
   <button data-mod="platform" onclick="switchMod('platform')">
     <svg viewBox="0 0 24 24" fill="none"><path d="M3 8l9-5 9 5-9 5zM3 8v8l9 5 9-5V8M12 13v8" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>变现
+  </button>
+  <button data-mod="invest" onclick="switchMod('invest')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 18l5-5 3 3 7-8M16 8h4v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>投资
   </button>
 </nav>
 
@@ -340,6 +347,17 @@ const MODS={
       {name:"小红书种草笔记",scene:"小红书",extra:"★",body:"图文/短视频种草，靠品牌合作（报备笔记）和店铺引流。变现：恰饭笔记+私域。注意：硬广限流，软植入更稳。",tags:"小红书,种草",status:"todo"},
       {name:"视频号互选",scene:"视频号",extra:"★★",body:"腾讯官方互选平台接单。依托微信生态，适合私域转化。变现：广告任务+直播带货+公众号导流。",tags:"视频号,私域",status:"master"},
       {name:"快手小店",scene:"快手",extra:"★★★",body:"下沉市场强信任，靠「老铁经济」直播带货。变现：带货佣金+粉丝团。需先开小店或挂靠。",tags:"快手,带货",status:"todo"}
+    ]},
+  invest:{name:"投资笔记",add:"添加投资",
+    lblName:"标的 / 名称",phName:"如：沪深300ETF / 贵州茅台 / BTC",
+    lblScene:"类型",phScene:"如：股票 / 基金 / ETF / 加密 / 其他",
+    lblBody:"投资逻辑 & 观察",phBody:"记录买入理由、关注指标、风险点、买卖计划…",
+    lblExtra:"持仓状态（选填）",phExtra:"如：观察中 / 持仓中 / 已清仓",
+    exList:[
+      {name:"沪深300ETF",scene:"ETF",extra:"观察中",body:"宽基指数定投。逻辑：长期看好国运+估值处于历史中低位。计划：每月固定日定投，跌破年线加仓10%。风险：短期回撤超20%需扛住。",tags:"ETF,定投,A股",status:"learn"},
+      {name:"纳斯达克100ETF",scene:"ETF",extra:"持仓中",body:"配置海外科技成长。逻辑：AI 产业趋势+美元资产对冲。关注：美联储利率拐点、纳指 PE 分位。风险：汇率波动+科技股拥挤。",tags:"ETF,美股,科技",status:"master"},
+      {name:"贵州茅台",scene:"股票",extra:"观察中",body:"消费龙头，护城河深。逻辑：品牌溢价+高毛利+现金流稳定。关注：批价走势、动销数据。买点：PE 回到历史30%分位以下。",tags:"股票,消费,价值",status:"todo"},
+      {name:"BTC",scene:"加密",extra:"持仓中",body:"数字黄金配置。逻辑：减半周期+机构化趋势。仓位控制在总资产5%内。风险：高波动、政策不确定性，严格止损。",tags:"加密,配置,高风险",status:"learn"}
     ]}
 };
 let state={prompt:[],tech:[],platform:[]};
