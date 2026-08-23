@@ -360,21 +360,27 @@ const MODS={
       {name:"BTC",scene:"加密",extra:"持仓中",body:"数字黄金配置。逻辑：减半周期+机构化趋势。仓位控制在总资产5%内。风险：高波动、政策不确定性，严格止损。",tags:"加密,配置,高风险",status:"learn"}
     ]}
 };
-let state={prompt:[],tech:[],platform:[]};
+let state={};
+for(const k in MODS) state[k]=[];
 let curMod="prompt",curFilter="全部",curStatus="learn",editId=null;
 
 function now(){return Date.now();}
 function load(){
-  let has=false;
+  let any=false;
   for(const k in MODS){
     const raw=localStorage.getItem(KEY+k);
-    if(raw){try{state[k]=JSON.parse(raw);has=true;}catch(e){}}
+    if(raw){try{state[k]=JSON.parse(raw);any=true;}catch(e){state[k]=[];}}
+    else state[k]=[];
   }
-  if(!has) seed();
+  // 任一模块缺失示例数据时，补种该模块（兼容旧版只存了3个模块的用户）
+  let needSeed=false;
+  for(const k in MODS){ if(!Array.isArray(state[k]) || state[k].length===0){ needSeed=true; break; } }
+  if(needSeed) seedMissing();
 }
-function seed(){
+function seedMissing(){
   const t=now();const day=86400000;
   for(const k in MODS){
+    if(Array.isArray(state[k]) && state[k].length>0) continue; /* 已有数据的模块不覆盖 */
     state[k]=MODS[k].exList.map((e,i)=>({
       id:t+i, name:e.name, scene:e.scene, extra:e.extra||"",
       body:e.body, tags:(e.tags||"").split(",").map(s=>s.trim()).filter(Boolean),
