@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<!-- 本工作台通过 WorkBuddy 资料库能力（EdgeOne Makers 部署）搭建、存储和部署，数据本地持久化 + 可导出备份 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI 学习成长台</title>
+<style>
+  :root{
+    --bg:#f5f9f8;
+    --card:#ffffff;
+    --ink:#1f2d2b;
+    --sub:#6b7c79;
+    --line:#e3ecea;
+    --main:#1aa97f;      /* 青绿主色 */
+    --main-soft:#e6f6f0;
+    --main-deep:#138a68;
+    --warn:#e5484d;      /* 逾期/支出红 */
+    --good:#16a34a;      /* 收入/已掌握绿 */
+    --gold:#e0a106;
+    --radius:16px;
+    --shadow:0 2px 10px rgba(26,169,127,.06), 0 1px 3px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;
+    padding-bottom:calc(80px + env(safe-area-inset-bottom));
+  }
+  /* 顶栏 */
+  header{
+    position:sticky;top:0;z-index:30;background:rgba(245,249,248,.92);
+    backdrop-filter:saturate(180%) blur(10px);
+    border-bottom:1px solid var(--line);
+    padding:12px 16px calc(12px + env(safe-area-inset-top));
+  }
+  .toprow{display:flex;align-items:center;gap:10px;max-width:1080px;margin:0 auto;}
+  .logo{width:34px;height:34px;flex:0 0 auto;}
+  .title{font-size:18px;font-weight:700;letter-spacing:.5px;}
+  .title small{display:block;font-size:11px;font-weight:400;color:var(--sub);letter-spacing:0;}
+  .spacer{flex:1;}
+  .sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);
+    background:var(--card);border:1px solid var(--line);padding:5px 10px;border-radius:20px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--good);}
+  .dot.off{background:var(--warn);}
+  .dot.syncing{background:var(--gold);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:14px 16px 0;}
+
+  /* 今天要处理 */
+  .today{
+    background:linear-gradient(135deg,#fff,#eafaf4);
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);
+  }
+  .today h2{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:7px;}
+  .today .cnt{font-size:12px;color:var(--sub);margin-bottom:10px;}
+  .td-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px dashed var(--line);}
+  .td-item:first-of-type{border-top:none;}
+  .td-badge{font-size:11px;padding:2px 8px;border-radius:10px;flex:0 0 auto;margin-top:1px;}
+  .b-over{background:#fdecec;color:var(--warn);}
+  .b-due{background:#fff4e0;color:var(--gold);}
+  .b-todo{background:var(--main-soft);color:var(--main-deep);}
+  .td-main{flex:1;min-width:0;}
+  .td-main .t{font-weight:600;font-size:14px;}
+  .td-main .m{font-size:12px;color:var(--sub);margin-top:2px;}
+  .td-main .t.over{color:var(--warn);}
+  .td-btn{flex:0 0 auto;border:none;background:var(--main);color:#fff;border-radius:10px;
+    padding:7px 12px;font-size:13px;cursor:pointer;min-height:36px;}
+  .td-empty{color:var(--sub);font-size:13px;padding:6px 0;text-align:center;}
+
+  /* 备份条 */
+  .backup{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .bk-btn{border:1px solid var(--line);background:var(--card);color:var(--ink);
+    border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:40px;}
+  .bk-btn:hover{border-color:var(--main);}
+  .hint{background:#fffaf0;border:1px solid #f3e2bb;color:#8a6d2a;font-size:12px;
+    padding:8px 12px;border-radius:10px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+
+  /* 模块切换 */
+  .tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .tab{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--sub);
+    border-radius:12px;padding:9px 16px;font-size:14px;cursor:pointer;white-space:nowrap;min-height:42px;display:flex;align-items:center;gap:7px;}
+  .tab.active{background:var(--main);color:#fff;border-color:var(--main);font-weight:600;}
+
+  /* 工具栏 */
+  .toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+  .search{flex:1;min-width:180px;position:relative;display:flex;align-items:center;}
+  .search svg{position:absolute;left:12px;width:16px;height:16px;color:var(--sub);}
+  .search input{width:100%;border:1px solid var(--line);background:var(--card);border-radius:12px;
+    padding:10px 12px 10px 36px;font-size:15px;color:var(--ink);min-height:44px;}
+  .search input:focus{outline:none;border-color:var(--main);}
+  .btn{border:none;background:var(--main);color:#fff;border-radius:12px;padding:0 18px;
+    font-size:14px;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .btn.ghost{background:var(--card);color:var(--main-deep);border:1px solid var(--main);}
+  .btn.danger{background:#fff;color:var(--warn);border:1px solid #f3c9c9;}
+
+  /* 标签筛选 */
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .chip{font-size:12px;padding:5px 12px;border-radius:14px;border:1px solid var(--line);
+    background:var(--card);color:var(--sub);cursor:pointer;}
+  .chip.active{background:var(--main-soft);color:var(--main-deep);border-color:var(--main);font-weight:600;}
+
+  /* 卡片列表 */
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;position:relative;}
+  .card .head{display:flex;align-items:flex-start;gap:8px;}
+  .card .name{font-weight:700;font-size:15px;flex:1;min-width:0;word-break:break-word;}
+  .card .star{margin-left:6px;cursor:pointer;flex:0 0 auto;width:22px;height:22px;}
+  .card .scene{font-size:12px;color:var(--main-deep);background:var(--main-soft);
+    padding:2px 9px;border-radius:10px;flex:0 0 auto;}
+  .card .body{font-size:13px;color:var(--ink);white-space:pre-wrap;word-break:break-word;
+    max-height:140px;overflow:auto;background:#fafdfc;border:1px solid var(--line);border-radius:10px;padding:9px 11px;}
+  .card .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px;}
+  .tag{background:#eef3f2;color:var(--sub);padding:2px 8px;border-radius:8px;}
+  .stat{background:#fff7e6;color:var(--gold);padding:2px 8px;border-radius:8px;}
+  .m-master{background:#e8f7ee;color:var(--good);}
+  .m-learn{background:#eef3f2;color:var(--sub);}
+  .m-todo{background:#fff0f0;color:var(--warn);}
+  .card .acts{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
+  .mini{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;
+    padding:6px 12px;font-size:13px;cursor:pointer;min-height:38px;display:flex;align-items:center;gap:5px;}
+  .mini:hover{border-color:var(--main);color:var(--main-deep);}
+  .mini.copy{background:var(--main);color:#fff;border-color:var(--main);}
+  .mini.del{color:var(--warn);border-color:#f3c9c9;}
+  mark{background:#fff2a8;border-radius:3px;padding:0 1px;}
+  .empty{text-align:center;color:var(--sub);padding:40px 0;font-size:14px;}
+  .empty button{margin-top:14px;}
+
+  /* 弹窗 */
+  .mask{position:fixed;inset:0;background:rgba(20,40,36,.45);z-index:50;display:none;
+    align-items:flex-end;justify-content:center;}
+  .mask.show{display:flex;}
+  .sheet{background:var(--card);width:100%;max-width:560px;border-radius:20px 20px 0 0;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto;
+    animation:up .25s ease;}
+  @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .sheet h3{margin:0 0 14px;font-size:17px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:13px;color:var(--sub);margin-bottom:5px;}
+  .field input,.field textarea,.field select{
+    width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+    font-size:15px;font-family:inherit;color:var(--ink);background:#fff;}
+  .field textarea{min-height:90px;resize:vertical;}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--main);}
+  .seg{display:flex;gap:6px;flex-wrap:wrap;}
+  .seg button{flex:1;min-width:70px;border:1px solid var(--line);background:#fff;color:var(--sub);
+    border-radius:10px;padding:9px 4px;font-size:13px;cursor:pointer;min-height:42px;}
+  .seg button.on{background:var(--main-soft);color:var(--main-deep);border-color:var(--main);font-weight:600;}
+  .sheet-acts{display:flex;gap:10px;margin-top:8px;}
+  .sheet-acts .btn{flex:1;justify-content:center;}
+
+  footer{text-align:center;color:var(--sub);font-size:12px;padding:24px 16px 8px;}
+
+  /* 移动端 */
+  @media(max-width:640px){
+    .list{grid-template-columns:1fr;}
+    .title{font-size:16px;}
+    .wrap{padding:12px 12px 0;}
+    .backup{font-size:12px;}
+  }
+  /* 底部 Tab（移动端更顺手，PC 也兼容） */
+  .bottom{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.96);
+    backdrop-filter:blur(10px);border-top:1px solid var(--line);
+    display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom));gap:4px;max-width:1080px;margin:0 auto;}
+  .bottom button{flex:1;border:none;background:none;color:var(--sub);font-size:11px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;border-radius:10px;min-height:44px;justify-content:center;}
+  .bottom button.on{color:var(--main-deep);background:var(--main-soft);}
+  .bottom svg{width:22px;height:22px;}
+  .hide{display:none !important;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="toprow">
+    <svg class="logo" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="6" fill="#1aa97f"/><path d="M7 14l3 3 7-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="title">AI 学习成长台<small>提示词 · 技术 · 平台变现 一站记录</small></div>
+    <div class="spacer"></div>
+    <div class="sync" id="syncBox"><span class="dot" id="syncDot"></span><span id="syncTxt">已同步</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 今天要处理 -->
+  <section class="today">
+    <h2>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 5 5.6.8-4 4 1 5.6L12 19l-5 2.4 1-5.6-4-4 5.6-.8z" fill="#1aa97f"/></svg>
+      今天要处理
+    </h2>
+    <div class="cnt" id="todayCnt"></div>
+    <div id="todayList"></div>
+  </section>
+
+  <!-- 备份条 -->
+  <div class="backup">
+    <button class="bk-btn" onclick="exportJSON()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="#1aa97f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      导出 JSON 备份
+    </button>
+    <button class="bk-btn" onclick="document.getElementById('imp').click()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15V3m0 12l-4-4m4 4l4-4M5 21h14" stroke="#1aa97f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      导入恢复
+    </button>
+    <input type="file" id="imp" accept="application/json" class="hide" onchange="importJSON(event)">
+    <button class="bk-btn danger" onclick="clearDemo()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m-7 0l1 13h8l1-13" stroke="#e5484d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      清空示例数据
+    </button>
+  </div>
+  <div class="hint hide" id="bkHint">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e0a106" stroke-width="2"/><path d="M12 8v5M12 16h.01" stroke="#e0a106" stroke-width="2" stroke-linecap="round"/></svg>
+    数据已积累 30 条，建议点上方「导出 JSON 备份」留个底。
+  </div>
+
+  <!-- 模块切换 -->
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-mod="prompt" onclick="switchMod('prompt')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H7l-3 3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      提示词库
+    </button>
+    <button class="tab" data-mod="tech" onclick="switchMod('tech')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 3v4M15 3v4M7 7h10v13H7zM10 11h4M10 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      技术笔记
+    </button>
+    <button class="tab" data-mod="platform" onclick="switchMod('platform')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 8l9-5 9 5-9 5zM3 8v8l9 5 9-5V8M12 13v8" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      平台变现
+    </button>
+  </div>
+
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M20 20l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="searchInput" type="search" placeholder="搜索关键词、场景、标签…" oninput="render()">
+    </div>
+    <button class="btn" onclick="openEditor()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      <span id="addLabel">添加提示词</span>
+    </button>
+  </div>
+  <div class="filters" id="filters"></div>
+
+  <div class="list" id="list"></div>
+
+</div>
+
+<footer>简洁清新 · 数据存本地浏览器 · 可导出备份 · 多设备复制本页即用</footer>
+
+<!-- 底部 Tab -->
+<nav class="bottom">
+  <button class="on" data-mod="prompt" onclick="switchMod('prompt')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H7l-3 3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>提示词
+  </button>
+  <button data-mod="tech" onclick="switchMod('tech')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M9 3v4M15 3v4M7 7h10v13H7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>技术
+  </button>
+  <button data-mod="platform" onclick="switchMod('platform')">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M3 8l9-5 9 5-9 5zM3 8v8l9 5 9-5V8M12 13v8" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>变现
+  </button>
+</nav>
+
+<!-- 编辑弹窗 -->
+<div class="mask" id="mask" onclick="if(event.target===this)closeEditor()">
+  <div class="sheet">
+    <h3 id="sheetTitle">添加</h3>
+    <div class="field">
+      <label id="lblName">名称 / 标题</label>
+      <input id="fName" type="text" placeholder="">
+    </div>
+    <div class="field" id="fSceneWrap">
+      <label id="lblScene">场景标签</label>
+      <input id="fScene" type="text" placeholder="如：写文案 / 代码调试 / 数据分析">
+    </div>
+    <div class="field">
+      <label id="lblBody">内容</label>
+      <textarea id="fBody" placeholder=""></textarea>
+    </div>
+    <div class="field" id="fExtraWrap">
+      <label id="lblExtra">补充信息</label>
+      <input id="fExtra" type="text" placeholder="">
+    </div>
+    <div class="field">
+      <label>掌握度 / 状态</label>
+      <div class="seg" id="fStatus">
+        <button type="button" data-v="master" onclick="pickStatus('master')">已掌握</button>
+        <button type="button" data-v="learn" class="on" onclick="pickStatus('learn')">学习中</button>
+        <button type="button" data-v="todo" onclick="pickStatus('todo')">待实践</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>标签（逗号分隔，用于跨模块检索）</label>
+      <input id="fTags" type="text" placeholder="如：抖音, 短视频, 蓝海">
+    </div>
+    <div class="sheet-acts">
+      <button class="btn ghost" onclick="closeEditor()">取消</button>
+      <button class="btn" onclick="saveEditor()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 数据层 ============ */
+const KEY="wb_aihub_";
+const MODS={
+  prompt:{name:"提示词库",add:"添加提示词",
+    lblName:"标题",phName:"如：爆款小红书标题生成",
+    lblScene:"场景标签",phScene:"如：写文案 / 代码调试",
+    lblBody:"提示词内容",phBody:"把提示词原文贴进来…",
+    lblExtra:"常用工具（选填）",phExtra:"如：ChatGPT / 通义千问",
+    exList:[
+      {name:"爆款短视频脚本",scene:"短视频文案",extra:"即梦/可灵",body:"你是一名资深短视频编导，请为主题「{主题}」生成一条 30 秒口播脚本：包含钩子开头、3 个痛点、1 个解决方案、行动号召。语气接地气。",tags:"短视频,脚本",status:"master"},
+      {name:"代码调试助手",scene:"代码调试",extra:"Cursor",body:"你是高级工程师。下面这段代码报错，请：1) 指出错误原因 2) 给出修复后的完整代码 3) 解释修复点。代码：{code}",tags:"代码,调试",status:"learn"},
+      {name:"周报自动生成",scene:"职场效率",extra:"通义千问",body:"根据以下本周完成事项，生成一份结构化周报（成果/进展/风险/下周计划）：{事项}",tags:"周报,效率",status:"todo"},
+      {name:"英文论文润色",scene:"学术写作",extra:"ChatGPT",body:"你是母语为英语的学者，请润色下面段落，提升学术表达并保留原意：{text}",tags:"学术,英语",status:"learn"}
+    ]},
+  tech:{name:"技术笔记",add:"添加技术",
+    lblName:"技术 / 工具名",phName:"如：文生视频 / 图生视频",
+    lblScene:"分类",phScene:"如：生图 / 生视频 / 剪辑",
+    lblBody:"流程 & 要点",phBody:"记录操作步骤、参数、坑点…",
+    lblExtra:"难度（选填）",phExtra:"如：★ / ★★ / ★★★",
+    exList:[
+      {name:"文生视频 (T2V)",scene:"生视频",extra:"★★",body:"工具：可灵 / 即梦。步骤：写分镜提示词 → 设定时长运镜 → 生成 → 剪辑拼接。注意：动作幅度别太大，否则人物会变形。",tags:"视频,AI",status:"learn"},
+      {name:"图生视频 (I2V)",scene:"生视频",extra:"★★★",body:"用一张静态图 + 运镜指令生成动态视频。适合产品展示。提示词加「slow zoom in / 微风拂动」更自然。",tags:"视频,图生视频",status:"todo"},
+      {name:"一键成片",scene:"剪辑",extra:"★★",body:"剪映「图文成片」：粘贴文案自动配素材+字幕+配音。适合资讯类批量产出，但需手动校对口播与画面。",tags:"剪辑,剪映",status:"master"},
+      {name:"AI 生图 (T2I)",scene:"生图",extra:"★",body:"Midjourney / 即梦：主体 + 风格 + 光线 + 镜头。加 --ar 比例。电商图用「product shot on white」更干净。",tags:"生图,电商",status:"learn"}
+    ]},
+  platform:{name:"平台变现",add:"添加方案",
+    lblName:"平台 / 方案名",phName:"如：抖音中视频计划",
+    lblScene:"平台",phScene:"如：抖音 / 视频号 / 小红书",
+    lblBody:"上传方案 & 变现途径",phBody:"记录方法步骤 + 怎么赚钱…",
+    lblExtra:"难度（选填）",phExtra:"如：★ / ★★ / ★★★",
+    exList:[
+      {name:"抖音中视频计划",scene:"抖音",extra:"★★",body:"发布≥1分钟横屏视频，过原创审核后按播放量分广告收益。门槛：同W号粉丝≥1w或三条视频≥1.7w播放。变现：流量分成+挂车带货。",tags:"抖音,分成",status:"learn"},
+      {name:"小红书种草笔记",scene:"小红书",extra:"★",body:"图文/短视频种草，靠品牌合作（报备笔记）和店铺引流。变现：恰饭笔记+私域。注意：硬广限流，软植入更稳。",tags:"小红书,种草",status:"todo"},
+      {name:"视频号互选",scene:"视频号",extra:"★★",body:"腾讯官方互选平台接单。依托微信生态，适合私域转化。变现：广告任务+直播带货+公众号导流。",tags:"视频号,私域",status:"master"},
+      {name:"快手小店",scene:"快手",extra:"★★★",body:"下沉市场强信任，靠「老铁经济」直播带货。变现：带货佣金+粉丝团。需先开小店或挂靠。",tags:"快手,带货",status:"todo"}
+    ]}
+};
+let state={prompt:[],tech:[],platform:[]};
+let curMod="prompt",curFilter="全部",curStatus="learn",editId=null;
+
+function now(){return Date.now();}
+function load(){
+  let has=false;
+  for(const k in MODS){
+    const raw=localStorage.getItem(KEY+k);
+    if(raw){try{state[k]=JSON.parse(raw);has=true;}catch(e){}}
+  }
+  if(!has) seed();
+}
+function seed(){
+  const t=now();const day=86400000;
+  for(const k in MODS){
+    state[k]=MODS[k].exList.map((e,i)=>({
+      id:t+i, name:e.name, scene:e.scene, extra:e.extra||"",
+      body:e.body, tags:(e.tags||"").split(",").map(s=>s.trim()).filter(Boolean),
+      status:e.status, star: i===0, use:0,
+      due: i===3 ? t-day*2 : t+day*(i+1),  /* 第4条设为逾期 */
+      created:t
+    }));
+    save(k);
+  }
+}
+function save(k){localStorage.setItem(KEY+k,JSON.stringify(state[k]));}
+
+/* ============ 今天要处理 ============ */
+function buildToday(){
+  const t=now();const items=[];
+  for(const k in MODS){
+    state[k].forEach(it=>{
+      if(it.status==="todo"){
+        const over=it.due && it.due<t;
+        items.push({mod:k,id:it.id,name:it.name,over,
+          due:it.due,label:MODS[k].name,
+          why:over?"标记待实践且已逾期":(it.due?("计划 "+fmt(it.due)+" 前实践"):"已标记待实践")});
+      }
+    });
+  }
+  items.sort((a,b)=>(a.over?-1:0)-(b.over?-1:0) || (a.due||9e15)-(b.due||9e15));
+  const box=document.getElementById('todayList');
+  const cnt=document.getElementById('todayCnt');
+  cnt.textContent= items.length? `共 ${items.length} 项待处理（红色为逾期）`:"暂无待处理，保持节奏 👍";
+  if(!items.length){box.innerHTML='<div class="td-empty">把条目状态设为「待实践」就会出现在这里，逾期自动标红</div>';return;}
+  box.innerHTML=items.map((it,i)=>`
+    <div class="td-item">
+      <span class="td-badge ${it.over?'b-over':'b-todo'}">${it.over?'逾期':'待实践'}</span>
+      <div class="td-main">
+        <div class="t ${it.over?'over':''}">${esc(it.name)} <span style="color:var(--sub);font-weight:400;font-size:12px">· ${it.label}</span></div>
+        <div class="m">${esc(it.why)}</div>
+      </div>
+      <button class="td-btn" onclick="gotoItem('${it.mod}','${it.id}')">去处理</button>
+    </div>`).join("");
+}
+function gotoItem(mod,id){
+  switchMod(mod);
+  setTimeout(()=>{
+    const el=document.querySelector(`[data-id="${id}"]`);
+    if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.style.boxShadow="0 0 0 3px var(--main)";setTimeout(()=>el.style.boxShadow="",1500);}
+  },120);
+}
+
+/* ============ 渲染 ============ */
+function switchMod(m){
+  curMod=m;curFilter="全部";
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.mod===m));
+  document.querySelectorAll('.bottom button').forEach(b=>b.classList.toggle('on',b.dataset.mod===m));
+  document.getElementById('addLabel').textContent=MODS[m].add;
+  render();
+}
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmt(ts){const d=new Date(ts);return `${d.getMonth()+1}月${d.getDate()}日`;}
+function hl(t,q){if(!q)return esc(t);const i=t.toLowerCase().indexOf(q.toLowerCase());if(i<0)return esc(t);
+  return esc(t.slice(0,i))+'<mark>'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length));}
+
+function render(){
+  const m=curMod,cfg=MODS[m],q=(document.getElementById('searchInput').value||'').trim();
+  let arr=state[m].slice();
+  // 标签筛选
+  const tags=[...new Set(arr.flatMap(it=>it.tags||[]))];
+  const fbox=document.getElementById('filters');
+  fbox.innerHTML=`<span class="chip ${curFilter==='全部'?'active':''}" onclick="setFilter('全部')">全部</span>`+
+    tags.map(t=>`<span class="chip ${curFilter===t?'active':''}" onclick="setFilter('${esc(t)}')">${esc(t)}</span>`).join("");
+  if(curFilter!=="全部") arr=arr.filter(it=>(it.tags||[]).includes(curFilter));
+  // 搜索
+  if(q){
+    const ql=q.toLowerCase();
+    arr=arr.filter(it=>(it.name+it.scene+it.body+(it.tags||[]).join(" ")+(it.extra||"")).toLowerCase().includes(ql));
+  }
+  arr.sort((a,b)=>(b.star?1:0)-(a.star?1:0) || b.use-a.use || b.created-a.created);
+  const list=document.getElementById('list');
+  if(!arr.length){
+    list.innerHTML=`<div class="empty">没有匹配的记录。<button class="mini" onclick="openEditor()">+ 添加一条</button></div>`;
+    return;
+  }
+  list.innerHTML=arr.map(it=>{
+    const sm={master:['m-master','已掌握'],learn:['m-learn','学习中'],todo:['m-todo','待实践']}[it.status];
+    return `<div class="card" data-id="${it.id}">
+      <div class="head">
+        <div class="name">${hl(it.name,q)}</div>
+        <svg class="star" onclick="toggleStar('${m}','${it.id}')" viewBox="0 0 24 24" fill="${it.star?'#e0a106':'none'}" stroke="#e0a106" stroke-width="2"><path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6L12 17.8 6.7 20.6l1.1-6L3.4 9.4l6-.8z"/></svg>
+        <span class="scene">${hl(it.scene,q)}</span>
+      </div>
+      <div class="body">${hl(it.body,q)}</div>
+      <div class="meta">
+        ${it.extra?`<span class="tag">${hl(it.extra,q)}</span>`:''}
+        ${(it.tags||[]).map(t=>`<span class="tag">#${hl(t,q)}</span>`).join("")}
+        <span class="${sm[0]}">${sm[1]}</span>
+        ${it.use?`<span class="stat">已用 ${it.use} 次</span>`:''}
+      </div>
+      <div class="acts">
+        <button class="mini copy" onclick="copyItem('${m}','${it.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="#fff" stroke-width="2"/><path d="M5 15V5a2 2 0 012-2h10" stroke="#fff" stroke-width="2"/></svg>
+          一键复制
+        </button>
+        <button class="mini" onclick="openEditor('${m}','${it.id}')">编辑</button>
+        <button class="mini del" onclick="delItem('${m}','${it.id}')">删除</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function setFilter(t){curFilter=t;render();}
+
+/* ============ 复制 ============ */
+async function copyItem(m,id){
+  const it=state[m].find(x=>x.id==id);if(!it)return;
+  it.use=(it.use||0)+1;save(m);render();
+  const txt=`【${it.name}】\n场景：${it.scene||"-"}\n${it.extra?("工具："+it.extra+"\n"):""}\n${it.body}`;
+  try{await navigator.clipboard.writeText(txt);toast("已复制 ✓");}
+  catch(e){const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast("已复制 ✓");}
+}
+let toastT;
+function toast(msg){let e=document.getElementById('toast');if(!e){e=document.createElement('div');e.id='toast';e.style.cssText='position:fixed;left:50%;top:30%;transform:translateX(-50%);background:#1f2d2b;color:#fff;padding:10px 18px;border-radius:12px;z-index:99;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.2)';document.body.appendChild(e);}e.textContent=msg;e.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>e.style.display='none',1400);}
+
+/* ============ 增删改 ============ */
+function toggleStar(m,id){const it=state[m].find(x=>x.id==id);if(!it)return;it.star=!it.star;save(m);render();}
+function delItem(m,id){if(!confirm("确定删除这条记录？"))return;state[m]=state[m].filter(x=>x.id!=id);save(m);render();buildToday();}
+function pickStatus(v){curStatus=v;document.querySelectorAll('#fStatus button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));}
+
+function openEditor(m,id){
+  const cfg=m?MODS[m]:MODS[curMod];
+  if(m)curMod=m;
+  document.getElementById('lblName').textContent=cfg.lblName;
+  document.getElementById('fName').placeholder=cfg.phName;
+  document.getElementById('lblScene').textContent=cfg.lblScene;
+  document.getElementById('fScene').placeholder=cfg.phScene;
+  document.getElementById('lblBody').textContent=cfg.lblBody;
+  document.getElementById('fBody').placeholder=cfg.phBody;
+  document.getElementById('lblExtra').textContent=cfg.lblExtra;
+  document.getElementById('fExtra').placeholder=cfg.phExtra;
+  const isPlat=(curMod==='platform');
+  document.getElementById('fExtraWrap').classList.toggle('hide',false);
+  if(id){
+    const it=state[curMod].find(x=>x.id==id);editId=id;
+    document.getElementById('sheetTitle').textContent="编辑 · "+cfg.name;
+    document.getElementById('fName').value=it.name;
+    document.getElementById('fScene').value=it.scene||"";
+    document.getElementById('fBody').value=it.body;
+    document.getElementById('fExtra').value=it.extra||"";
+    document.getElementById('fTags').value=(it.tags||[]).join(", ");
+    pickStatus(it.status);
+  }else{
+    editId=null;
+    document.getElementById('sheetTitle').textContent="添加 · "+cfg.name;
+    document.getElementById('fName').value="";
+    document.getElementById('fScene').value="";
+    document.getElementById('fBody').value="";
+    document.getElementById('fExtra').value="";
+    document.getElementById('fTags').value="";
+    pickStatus('learn');
+  }
+  document.getElementById('mask').classList.add('show');
+  setTimeout(()=>document.getElementById('fName').focus(),200);
+}
+function closeEditor(){document.getElementById('mask').classList.remove('show');}
+function saveEditor(){
+  const name=document.getElementById('fName').value.trim();
+  if(!name){alert("请填写名称");return;}
+  const body=document.getElementById('fBody').value.trim();
+  const scene=document.getElementById('fScene').value.trim();
+  const extra=document.getElementById('fExtra').value.trim();
+  const tags=document.getElementById('fTags').value.split(",").map(s=>s.trim()).filter(Boolean);
+  const data={name,scene,body,extra,tags,status:curStatus};
+  if(editId){
+    const it=state[curMod].find(x=>x.id==editId);
+    Object.assign(it,data);
+  }else{
+    state[curMod].unshift(Object.assign({id:now(),star:false,use:0,due:0,created:now()},data));
+  }
+  save(curMod);closeEditor();render();buildToday();checkBackupHint();
+}
+function checkBackupHint(){
+  const total=Object.values(state).reduce((s,a)=>s+a.length,0);
+  document.getElementById('bkHint').classList.toggle('hide',total<30);
+}
+
+/* ============ 备份 ============ */
+function exportJSON(){
+  const out={app:"ai-learn-hub",v:1,exported:now(),data:state};
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download="AI学习成长台备份_"+new Date().toISOString().slice(0,10)+".json";a.click();
+  toast("已导出备份 ✓");
+}
+function importJSON(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const o=JSON.parse(r.result);
+      if(o&&o.data){
+        for(const k in MODS){if(Array.isArray(o.data[k])){state[k]=o.data[k];save(k);}}
+        render();buildToday();checkBackupHint();toast("导入成功 ✓");
+      }else alert("文件格式不正确");
+    }catch(err){alert("解析失败："+err.message);}
+  };
+  r.readAsText(f);e.target.value="";
+}
+function clearDemo(){
+  if(!confirm("将清空当前所有示例数据（含你新增的）。建议先导出备份。确定继续？"))return;
+  for(const k in MODS){state[k]=[];save(k);}
+  render();buildToday();checkBackupHint();toast("已清空");
+}
+
+/* ============ 初始化 ============ */
+load();render();buildToday();checkBackupHint();
+</script>
+</body>
+</html>
