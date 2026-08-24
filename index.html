@@ -80,6 +80,18 @@
   .hint{background:#fffaf0;border:1px solid #f3e2bb;color:#8a6d2a;font-size:12px;
     padding:8px 12px;border-radius:10px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 
+  /* 云端同步 */
+  .cloud{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 14px;margin-bottom:14px;}
+  .cloud summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--main-deep);list-style:none;display:flex;align-items:center;gap:6px;}
+  .cloud summary::-webkit-details-marker{display:none;}
+  .cloud-body{padding-top:10px;display:flex;flex-direction:column;gap:10px;}
+  .cloud-tip{font-size:12px;color:var(--sub);line-height:1.6;margin:0;}
+  .cloud-tip code{background:var(--main-soft);color:var(--main-deep);padding:1px 5px;border-radius:5px;}
+  .cloud-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .cloud-input{flex:1;min-width:160px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--ink);min-height:40px;}
+  .cloud-input:focus{outline:none;border-color:var(--main);}
+  .cloud-status{font-size:12px;color:var(--sub);padding:2px 0;}
+
   /* 模块切换 */
   .tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .tab{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--sub);
@@ -217,6 +229,22 @@
       清空示例数据
     </button>
   </div>
+  <!-- 云端同步 -->
+  <details class="cloud" id="cloudPanel">
+    <summary>☁ 云端同步（GitHub 跨浏览器 / 设备）</summary>
+    <div class="cloud-body">
+      <p class="cloud-tip">把数据存到你 GitHub 仓库的 <code>data.json</code>，任何浏览器 / 手机打开此链接都自动同步。下方填「仅授权 ai-learn-hub 这一个仓库」的细粒度 Token（存在本页本地，不上传任何人）。</p>
+      <div class="cloud-row">
+        <input id="ghToken" type="password" class="cloud-input" placeholder="粘贴 GitHub 细粒度 Token（仅此仓库）">
+        <button class="bk-btn" onclick="setGhToken()">保存 Token</button>
+      </div>
+      <div class="cloud-row">
+        <button class="bk-btn" onclick="pushCloud()">↑ 立即上传同步</button>
+        <button class="bk-btn" onclick="pullCloud()">↓ 从云端拉取</button>
+      </div>
+      <div class="cloud-status" id="ghStatus">未连接</div>
+    </div>
+  </details>
   <div class="hint hide" id="bkHint">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e0a106" stroke-width="2"/><path d="M12 8v5M12 16h.01" stroke="#e0a106" stroke-width="2" stroke-linecap="round"/></svg>
     数据已积累 30 条，建议点上方「导出 JSON 备份」留个底。
@@ -259,7 +287,7 @@
 
 </div>
 
-<footer>简洁清新 · 数据存本地浏览器 · 可导出备份 · 多设备复制本页即用</footer>
+<footer>简洁清新 · 可开启 GitHub 云端同步（跨浏览器/设备）· 也可导出备份 · 数据存本地+云端</footer>
 
 <!-- 底部 Tab -->
 <nav class="bottom">
@@ -395,7 +423,7 @@ function load(){
     localStorage.setItem(INIT_FLAG,"1");
   }
 }
-function save(k){localStorage.setItem(KEY+k,JSON.stringify(state[k]));maybeAutoBackup();}
+function save(k){localStorage.setItem(KEY+k,JSON.stringify(state[k]));maybeAutoBackup();maybeCloudSync();}
 /* 自动备份：开启后每次数据变化，防抖下载一份带时间戳的备份 JSON 到电脑，避免 localStorage 被清导致数据丢失 */
 let autoBackup=localStorage.getItem(KEY+"autobackup")==="1";
 let _abTimer=null;
@@ -640,8 +668,91 @@ function clearDemo(){
   render();buildToday();checkBackupHint();toast("已清空");
 }
 
+/* ============ GitHub 云端同步（跨浏览器/设备） ============ */
+const GH_OWNER="tony1314-cloud", GH_REPO="ai-learn-hub", GH_PATH="data.json";
+let ghToken=localStorage.getItem(KEY+"ghtoken")||"";
+let _ghTimer=null, _ghSha=null;
+function b64enc(s){return btoa(unescape(encodeURIComponent(s)));}
+function b64dec(s){return decodeURIComponent(escape(atob(String(s).replace(/\s/g,""))));}
+function ghApiUrl(){return "https://api.github.com/repos/"+GH_OWNER+"/"+GH_REPO+"/contents/"+GH_PATH;}
+function setGhStatus(t){const e=document.getElementById('ghStatus');if(e)e.textContent=t;}
+async function ghGet(){
+  const r=await fetch(ghApiUrl(),{headers:{Authorization:"Bearer "+ghToken,Accept:"application/vnd.github+json"}});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error("GitHub "+r.status);
+  const j=await r.json();return {content:b64dec(j.content),sha:j.sha};
+}
+async function ghPut(content,sha,msg){
+  const body={message:msg||"sync data",content:b64enc(content)};
+  if(sha)body.sha=sha;
+  const r=await fetch(ghApiUrl(),{method:"PUT",headers:{Authorization:"Bearer "+ghToken,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error("GitHub "+r.status);
+  const j=await r.json();return j.content.sha;
+}
+async function pushCloud(){
+  if(!ghToken){toast("请先保存 GitHub Token");return;}
+  try{
+    const str=JSON.stringify({app:"ai-learn-hub",v:1,data:state});
+    const prev=await ghGet();
+    const sha=prev?prev.sha:null;
+    _ghSha=await ghPut(str,sha,"sync: "+new Date().toISOString());
+    setGhStatus("已同步 ✓ "+new Date().toLocaleTimeString());
+    toast("已同步到云端 ✓");
+  }catch(e){setGhStatus("同步失败："+e.message);toast("同步失败："+e.message);}
+}
+async function pullCloud(){
+  if(!ghToken){toast("请先保存 GitHub Token");return;}
+  try{
+    const prev=await ghGet();
+    if(!prev){toast("云端暂无数据");setGhStatus("云端暂无数据");return;}
+    const obj=JSON.parse(prev.content);
+    if(obj&&obj.data){
+      for(const k in MODS){if(Array.isArray(obj.data[k])){state[k]=obj.data[k];localStorage.setItem(KEY+k,JSON.stringify(state[k]));}}
+    }
+    _ghSha=prev.sha;
+    render();buildToday();checkBackupHint();
+    setGhStatus("已拉取 ✓ "+new Date().toLocaleTimeString());
+    toast("已从云端拉取 ✓");
+  }catch(e){setGhStatus("拉取失败："+e.message);toast("拉取失败："+e.message);}
+}
+function maybeCloudSync(){
+  if(!ghToken)return;
+  clearTimeout(_ghTimer);
+  _ghTimer=setTimeout(pushCloud,1500);
+}
+async function initCloud(){
+  if(!ghToken){setGhStatus("未连接（点开填写 Token 即可开启）");return;}
+  try{
+    const prev=await ghGet();
+    if(prev){
+      const obj=JSON.parse(prev.content);
+      if(obj&&obj.data){
+        for(const k in MODS){if(Array.isArray(obj.data[k])){state[k]=obj.data[k];localStorage.setItem(KEY+k,JSON.stringify(state[k]));}}
+      }
+      _ghSha=prev.sha;
+      setGhStatus("已连接云端 ✓ 数据已是最新");
+    }else{
+      setGhStatus("已连接，云端暂无 data.json（首次改动会自动创建）");
+      /* 云端空，则把本地现有数据推上去，初始化云端 */
+      if(Object.values(state).some(a=>a.length)) pushCloud();
+    }
+  }catch(e){setGhStatus("云端读取失败："+e.message+"（将用本地数据）");}
+  render();buildToday();checkBackupHint();
+}
+function setGhToken(){
+  const v=document.getElementById('ghToken').value||"";
+  const val=v.trim();
+  if(!val){localStorage.removeItem(KEY+"ghtoken");ghToken="";setGhStatus("已清除 Token");toast("已清除 Token");return;}
+  ghToken=val;localStorage.setItem(KEY+"ghtoken",val);
+  setGhStatus("Token 已保存，正在连接…");
+  toast("Token 已保存");
+  initCloud();
+}
+
 /* ============ 初始化 ============ */
-load();render();buildToday();checkBackupHint();refreshAutoBkBtn();
+load();render();buildToday();checkBackupHint();
+if(ghToken) initCloud();
+refreshAutoBkBtn();
 </script>
 </body>
 </html>
