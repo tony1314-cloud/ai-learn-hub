@@ -76,6 +76,7 @@
   .bk-btn{border:1px solid var(--line);background:var(--card);color:var(--ink);
     border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:40px;}
   .bk-btn:hover{border-color:var(--main);}
+  .bk-btn.on{border-color:var(--main);background:var(--main-soft);color:var(--main-deep);font-weight:600;}
   .hint{background:#fffaf0;border:1px solid #f3e2bb;color:#8a6d2a;font-size:12px;
     padding:8px 12px;border-radius:10px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
 
@@ -205,6 +206,10 @@
     <button class="bk-btn" onclick="document.getElementById('imp').click()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 15V3m0 12l-4-4m4 4l4-4M5 21h14" stroke="#ef9437" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       导入恢复
+    </button>
+    <button class="bk-btn" id="autoBkBtn" onclick="toggleAutoBackup()" title="开启后，每次增删改自动下载一份带时间戳的备份到电脑，防止 localStorage 被清后数据丢失">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 109 9" stroke="#ef9437" stroke-width="2" stroke-linecap="round"/><path d="M12 7v5l3 2" stroke="#ef9437" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="autoBkTxt">自动备份：关</span>
     </button>
     <input type="file" id="imp" accept="application/json" class="hide" onchange="importJSON(event)">
     <button class="bk-btn danger" onclick="clearDemo()">
@@ -365,33 +370,63 @@ for(const k in MODS) state[k]=[];
 let curMod="prompt",curFilter="全部",curStatus="learn",editId=null;
 
 function now(){return Date.now();}
+const INIT_FLAG=KEY+"init";
 function load(){
-  let any=false;
+  const needInit=!localStorage.getItem(INIT_FLAG);
   for(const k in MODS){
     const raw=localStorage.getItem(KEY+k);
-    if(raw){try{state[k]=JSON.parse(raw);any=true;}catch(e){state[k]=[];}}
+    if(raw){try{state[k]=JSON.parse(raw);}catch(e){state[k]=[];}}
     else state[k]=[];
   }
-  // 任一模块缺失示例数据时，补种该模块（兼容旧版只存了3个模块的用户）
-  let needSeed=false;
-  for(const k in MODS){ if(!Array.isArray(state[k]) || state[k].length===0){ needSeed=true; break; } }
-  if(needSeed) seedMissing();
-}
-function seedMissing(){
-  const t=now();const day=86400000;
-  for(const k in MODS){
-    if(Array.isArray(state[k]) && state[k].length>0) continue; /* 已有数据的模块不覆盖 */
-    state[k]=MODS[k].exList.map((e,i)=>({
-      id:t+i, name:e.name, scene:e.scene, extra:e.extra||"",
-      body:e.body, tags:(e.tags||"").split(",").map(s=>s.trim()).filter(Boolean),
-      status:e.status, star: i===0, use:0,
-      due: i===3 ? t-day*2 : t+day*(i+1),  /* 第4条设为逾期 */
-      created:t
-    }));
-    save(k);
+  // 仅“首次访问”补种示例一次；之后无论清空与否都不再自动补种，避免把你清空的数据变回示例
+  if(needInit){
+    const t=now(),day=86400000;
+    for(const k in MODS){
+      if(Array.isArray(state[k]) && state[k].length>0) continue;
+      state[k]=MODS[k].exList.map((e,i)=>({
+        id:t+i, name:e.name, scene:e.scene, extra:e.extra||"",
+        body:e.body, tags:(e.tags||"").split(",").map(s=>s.trim()).filter(Boolean),
+        status:e.status, star:i===0, use:0,
+        due: i===3 ? t-day*2 : t+day*(i+1),  /* 第4条设为逾期 */
+        created:t
+      }));
+      save(k);
+    }
+    localStorage.setItem(INIT_FLAG,"1");
   }
 }
-function save(k){localStorage.setItem(KEY+k,JSON.stringify(state[k]));}
+function save(k){localStorage.setItem(KEY+k,JSON.stringify(state[k]));maybeAutoBackup();}
+/* 自动备份：开启后每次数据变化，防抖下载一份带时间戳的备份 JSON 到电脑，避免 localStorage 被清导致数据丢失 */
+let autoBackup=localStorage.getItem(KEY+"autobackup")==="1";
+let _abTimer=null;
+function toggleAutoBackup(){
+  autoBackup=!autoBackup;
+  localStorage.setItem(KEY+"autobackup",autoBackup?"1":"0");
+  refreshAutoBkBtn();
+  toast(autoBackup?"已开启自动备份：每次改动会自动下载备份到电脑 ✓":"已关闭自动备份");
+  if(autoBackup) doAutoBackup(); /* 立即备一份当前全量 */
+}
+function refreshAutoBkBtn(){
+  const b=document.getElementById('autoBkBtn'),t=document.getElementById('autoBkTxt');
+  if(!b||!t)return;
+  b.classList.toggle('on',autoBackup);
+  t.textContent="自动备份："+(autoBackup?"开":"关");
+}
+function maybeAutoBackup(){
+  if(!autoBackup)return;
+  clearTimeout(_abTimer);
+  _abTimer=setTimeout(doAutoBackup,2500); /* 停顿 2.5s 后再落盘，避免连续操作刷屏 */
+}
+function doAutoBackup(){
+  const out={app:"ai-learn-hub",v:1,exported:now(),data:state};
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const d=new Date();
+  const pad=n=>String(n).padStart(2,"0");
+  a.download="AI学习成长台_自动备份_"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+".json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
 
 /* ============ 今天要处理 ============ */
 function buildToday(){
@@ -561,7 +596,20 @@ function saveEditor(){
 }
 function checkBackupHint(){
   const total=Object.values(state).reduce((s,a)=>s+a.length,0);
-  document.getElementById('bkHint').classList.toggle('hide',total<30);
+  const el=document.getElementById('bkHint');
+  const warn='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e0a106" stroke-width="2"/><path d="M12 8v5M12 16h.01" stroke="#e0a106" stroke-width="2" stroke-linecap="round"/></svg>';
+  if(total===0){
+    el.innerHTML=warn+' 当前链接暂无数据。若你在其它设备 / 本地文件里已有笔记，点上方「导入恢复」即可迁移过来；新链接首次打开会自动补一份示例。';
+    el.classList.remove('hide');
+  }else if(!autoBackup){
+    el.innerHTML=warn+' 已存 '+total+' 条。建议点上方「自动备份」开关把它打开——之后每次改动会自动下载备份到电脑，localStorage 被清也不怕。';
+    el.classList.remove('hide');
+  }else if(total>=30){
+    el.innerHTML=warn+' 数据已积累 '+total+' 条，自动备份已开启 ✓ 如换设备可随时用「导入恢复」迁移。';
+    el.classList.remove('hide');
+  }else{
+    el.classList.add('hide');
+  }
 }
 
 /* ============ 备份 ============ */
@@ -593,7 +641,7 @@ function clearDemo(){
 }
 
 /* ============ 初始化 ============ */
-load();render();buildToday();checkBackupHint();
+load();render();buildToday();checkBackupHint();refreshAutoBkBtn();
 </script>
 </body>
 </html>
